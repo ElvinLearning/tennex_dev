@@ -29,6 +29,8 @@ npm run dev
 
 Press `Esc` → Agent brains; the Hermes models your key can use are listed automatically. If your Nous dashboard shows a different API URL, set `NOUS_BASE_URL`.
 
+Something not showing up? Run `npm run doctor`. It checks each configured provider, prints the exact HTTP responses, and sends a one-word test message. (Opening the API base URL in a browser returns 404; that's normal, because it isn't a web page.)
+
 ### Free: Hermes on your own machine (Ollama)
 
 ```bash
