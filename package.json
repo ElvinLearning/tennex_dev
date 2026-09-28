@@ -1,0 +1,25 @@
+{
+  "name": "tennex-dev",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The 10x e/acc office: walk around a Three.js office of AI agents, watch their screens, and talk to them.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "start": "node server/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "engines": {
+    "node": ">=20.12"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.129.0",
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "vite": "^8.3.1",
+    "vitest": "^5.0.2"
+  }
+}
