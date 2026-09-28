@@ -43,5 +43,8 @@ export function routePrompt(text, agentIds, focusedId = null) {
     const rest = stripAddress(body, ALIASES[id] ?? [id], VERBS.has(id) && !greeted);
     if (rest !== null && rest) return { targets: [id], text: rest };
   }
+  // A single @mention anywhere ("can you @critic look at this") also counts.
+  const mentioned = agentIds.filter((id) => new RegExp(`(^|\\s)@${escape(id)}(?![\\w-])`, 'i').test(original));
+  if (mentioned.length === 1) return { targets: mentioned, text: original };
   return { targets: focusedId ? [focusedId] : [], text: original };
 }

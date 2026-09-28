@@ -24,7 +24,7 @@ const KEYWORDS =
 
 const IDLE = {
   editor: [
-    `export function shipIt(feature: Feature) {\n  const diff = feature.smallest();\n  return deploy(diff, { tests: "green", meetings: 0 });\n}\n`,
+    `export function shipIt(feature: Feature) {\n  const diff = feature.smallest();\n  return deploy(diff, { requireTests: true });\n}\n`,
     `// hot path: 10x faster by doing 10x less\nfor (const job of queue.drain()) {\n  if (seen.has(job.id)) continue;\n  seen.add(job.id);\n  await run(job);\n}\n`,
     `pub fn accelerate(v: f64, dt: f64) -> f64 {\n    v * (1.0 + dt).powf(10.0)\n}\n`,
     `const cache = new Map<string, Promise<Result>>();\nexport const memo = (k: string, f: () => Promise<Result>) =>\n  cache.get(k) ?? (cache.set(k, f()), cache.get(k)!);\n`,
@@ -37,7 +37,7 @@ const IDLE = {
     'office-7d9f8c-x2x    1/1   Running   0   3m',
     'office-7d9f8c-q8w    1/1   Running   0   3m',
     '$ curl -s prod/healthz',
-    '{"ok":true,"vibes":"immaculate"}',
+    '{"ok":true,"version":"1.4.2"}',
     '$ gh run watch',
     '✓ ship.yml  main  build+test+deploy  1m12s',
     '[warn] disk 71% on node-3, auto-scaling',
@@ -62,7 +62,7 @@ const TEST_NAMES = [
   'voice > push-to-talk ends cleanly',
   'deploy > rollback in < 30s',
   'velocity > is exponential',
-  'agents > never block on meetings',
+  'agents > hand off work by name',
   'api > rejects unknown agent',
   'cache > hit rate > 90%',
 ];
@@ -114,6 +114,7 @@ export class AgentScreen {
     this.t = 0;
     this.redrawIn = 0;
     this.speed = 1;
+    this.scroll = 0; // lines scrolled up from the bottom
     this.#seedIdle();
   }
 
@@ -121,7 +122,18 @@ export class AgentScreen {
     if (this.app === 'terminal' || this.app === 'review') this.idleLines = IDLE[this.app].slice(0, 4);
   }
 
+  scrollBy(lines) {
+    this.scroll = Math.max(0, this.scroll + lines);
+    this.redrawIn = 0;
+  }
+
+  // What's on screen as plain text, for copying.
+  get text() {
+    return this.mode === 'output' ? this.output : '';
+  }
+
   startThinking(prompt) {
+    this.scroll = 0;
     this.mode = 'thinking';
     this.prompt = prompt;
     this.output = '';
@@ -223,10 +235,13 @@ export class AgentScreen {
     const { ctx, theme } = this;
     const lines = wrap(text);
     const rows = Math.floor((H - BAR - PAD * 2) / LH);
-    const start = Math.max(0, lines.length - rows);
+    const maxScroll = Math.max(0, lines.length - rows);
+    if (this.scroll > maxScroll) this.scroll = maxScroll;
+    const start = maxScroll - this.scroll;
+    const end = Math.min(lines.length, start + rows);
     ctx.font = `${FONT}px ui-monospace, "SF Mono", Menlo, Consolas, monospace`;
     const x0 = numbers ? PAD + 44 : PAD;
-    for (let i = start; i < lines.length; i++) {
+    for (let i = start; i < end; i++) {
       const y = BAR + PAD + (i - start + 1) * LH - 6;
       if (numbers) {
         ctx.fillStyle = '#3b4261';
@@ -234,7 +249,13 @@ export class AgentScreen {
       }
       this.#drawLine(lines[i], x0, y, lineColor(lines[i], theme.fg));
     }
-    if (cursor && Math.floor(this.t * 2) % 2 === 0) {
+    if (this.scroll > 0) {
+      ctx.fillStyle = this.agent.color;
+      ctx.font = `700 16px ui-monospace, Menlo, monospace`;
+      ctx.fillText(`▼ ${this.scroll} more`, W - 150, H - 12);
+      ctx.font = `${FONT}px ui-monospace, "SF Mono", Menlo, Consolas, monospace`;
+    }
+    if (cursor && this.scroll === 0 && Math.floor(this.t * 2) % 2 === 0) {
       const last = lines[lines.length - 1] ?? '';
       const y = BAR + PAD + (lines.length - start) * LH - 6;
       ctx.fillStyle = this.agent.color;
@@ -373,7 +394,7 @@ export class AgentScreen {
     const kpis = [
       ['deploys/day', Math.round(last)],
       ['tests', `${(98 + Math.sin(this.t) * 1.5).toFixed(1)}%`],
-      ['meetings', 0],
+      ['open PRs', 3],
       ['kardashev', `${(0.73 + last / 1e5).toFixed(4)}`],
     ];
     ctx.font = `600 20px ui-monospace, Menlo, monospace`;

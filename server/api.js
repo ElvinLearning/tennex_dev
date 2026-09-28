@@ -49,7 +49,7 @@ const clip = (s, n = MAX_TEXT) => String(s ?? '').slice(0, n);
 
 // Only trust the shape we expect from the browser; the agent persona is chosen
 // server-side from the roster, never taken from the request.
-export function buildMessages({ history = [], prompt, office = [] }) {
+export function buildMessages({ history = [], prompt, office = [], brief = '' }) {
   const messages = [];
   for (const m of history.slice(-MAX_HISTORY)) {
     if ((m?.role !== 'user' && m?.role !== 'assistant') || !m.content) continue;
@@ -60,7 +60,11 @@ export function buildMessages({ history = [], prompt, office = [] }) {
   while (messages[0]?.role === 'assistant') messages.shift();
 
   const feed = office.slice(-12).map((l) => `- ${clip(l, 300)}`).join('\n');
-  const content = (feed ? `[Office feed, most recent last]\n${feed}\n\n` : '') + `Human says: ${clip(prompt, 2000)}`;
+  const context = [];
+  if (brief) context.push(`[Project brief]\n${clip(brief, 1500)}`);
+  if (feed) context.push(`[Office feed, most recent last]\n${feed}`);
+  context.push(`Human says: ${clip(prompt, 4000)}`);
+  const content = context.join('\n\n');
   if (messages[messages.length - 1]?.role === 'user') messages.push({ role: 'assistant', content: '(listening)' });
   messages.push({ role: 'user', content });
   return messages;

@@ -27,9 +27,12 @@
     <div id="toasts" class="hud"></div>
 
     <form id="inputbar" class="hud hidden" autocomplete="off">
-      <span id="input-target"></span>
-      <input id="input" type="text" placeholder="Tell them what to build…  (@name to address anyone, 'team,' for everyone)" />
-      <kbd>Enter</kbd>
+      <div id="chips" aria-label="Address an agent"></div>
+      <div class="row">
+        <span id="input-target"></span>
+        <input id="input" type="text" placeholder="What should they do?  @name to pick someone · /brief to set the project" />
+        <kbd>Enter</kbd>
+      </div>
     </form>
 
     <div id="keys" class="hud">
@@ -51,7 +54,8 @@
           <li>Walk up behind an agent to see their screen, or press <kbd>F</kbd> to watch it up close.</li>
           <li>Hold <kbd>V</kbd> and <b>say</b> what you want built. Let go to send. They answer out loud and do the work on screen.</li>
           <li>Say a name first (<i>"Critic, review Tenx's code"</i>) to reach anyone, or <i>"Team, …"</i> to reach everyone.</li>
-          <li>No mic? Press <kbd>Enter</kbd> to type instead.</li>
+          <li>No mic? Press <kbd>Enter</kbd> to type. Agent names show up there; type <kbd>@</kbd> and press <kbd>Tab</kbd> to complete one.</li>
+          <li>Set what the team is working on with <i>/brief roblox</i>, <i>/brief cozy</i>, <i>/brief higgsfield</i>, <i>/brief wolf</i>, or <i>/brief</i> plus your own words.</li>
         </ul>
         <button id="enter">Enter the office</button>
         <p id="support" class="fine"></p>

@@ -5,7 +5,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 
-import { AGENTS } from './agents/roster.js';
+import { AGENTS, BRIEF_PRESETS } from './agents/roster.js';
 import { buildOffice, ROOM } from './world/office.js';
 import { AgentActor } from './world/agent-actor.js';
 import { ReplyParser } from './brain/parser.js';
@@ -60,6 +60,7 @@ const state = {
   focused: null,
   screenView: null, // { agent, from: {pos, quat}, t, back }
   typing: false,
+  brief: loadBrief(),
   stats: { prompts: 0, lines: 0, tests: 0, agents: agents.length, live: false, model: '' },
   feed: [
     'Tenx pushed 3 commits to main',
@@ -129,6 +130,9 @@ addEventListener('keydown', (e) => {
     case 'Escape':
       if (state.screenView) exitScreenView();
       break;
+    case 'KeyC':
+      if (state.screenView) copyScreen(state.screenView.agent);
+      break;
     case 'KeyM':
       $('mute-state').textContent = speaker.toggleMute() ? 'voice off' : 'voice on';
       break;
@@ -149,6 +153,24 @@ addEventListener('blur', () => {
   keys.clear();
   stopListening();
 });
+
+addEventListener(
+  'wheel',
+  (e) => {
+    if (!state.screenView || state.typing) return;
+    state.screenView.agent.screen.scrollBy(e.deltaY > 0 ? -3 : 3);
+  },
+  { passive: true },
+);
+
+function copyScreen(agent) {
+  const text = agent.screen.text;
+  if (!text) return toast(`Nothing to copy yet. Give ${agent.def.name} a task first.`);
+  navigator.clipboard
+    ?.writeText(text)
+    .then(() => toast(`Copied ${agent.def.name}'s screen (${text.split('\n').length} lines).`))
+    .catch(() => toast('Clipboard is blocked here. Select the text from the chat panel instead.'));
+}
 
 function collide(pos) {
   for (const c of office.colliders) {
@@ -348,7 +370,7 @@ function updateHint() {
   hint.style.setProperty('--hint-color', a.def.color);
   const talk = voiceSupport.listen ? '<kbd>V</kbd> hold to talk · ' : '';
   hint.innerHTML = state.screenView
-    ? `Watching <b></b>'s screen · ${talk}<kbd>Enter</kbd> type · <kbd>F</kbd> leave`
+    ? `Watching <b></b>'s screen · ${talk}<kbd>Enter</kbd> type · scroll to read · <kbd>C</kbd> copy · <kbd>F</kbd> leave`
     : `<b></b> <span style="color:#a1a1aa">${a.def.title}</span> · ${talk}<kbd>Enter</kbd> type · <kbd>F</kbd> watch screen`;
   hint.querySelector('b').textContent = a.def.name;
   renderPanel(a);
@@ -427,15 +449,114 @@ function stopListening() {
   ptt.stop();
 }
 
+function loadBrief() {
+  try {
+    return localStorage.getItem('tennex.brief') || '';
+  } catch {
+    return '';
+  }
+}
+
+function setBrief(text) {
+  state.brief = text;
+  try {
+    localStorage.setItem('tennex.brief', text);
+  } catch {}
+  feed(text ? `Brief set: ${text}` : 'Brief cleared');
+  toast(text ? `Project brief: ${text}` : 'Project brief cleared.');
+}
+
+// The chip row above the input: who you can @, and the current brief.
+function renderChips() {
+  const input = $('input');
+  const before = input.value.slice(0, input.selectionStart ?? input.value.length);
+  const partial = before.match(/(?:^|\s)@([\w-]*)$/)?.[1]?.toLowerCase();
+  const chips = [];
+  for (const a of agents) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.style.color = a.def.color;
+    b.style.setProperty('--chip', a.def.color);
+    b.innerHTML = '<span class="dot"></span><b></b><em></em>';
+    b.querySelector('b').textContent = `@${a.def.name}`;
+    b.querySelector('b').style.color = 'var(--ink)';
+    b.querySelector('em').textContent = a.def.title;
+    if (partial !== undefined) b.classList.add(a.id.startsWith(partial) ? 'match' : 'dim');
+    b.addEventListener('click', () => insertMention(a.def.name));
+    chips.push(b);
+  }
+  const team = document.createElement('button');
+  team.type = 'button';
+  team.innerHTML = '<b>@team</b><em>everyone</em>';
+  if (partial !== undefined) team.classList.add('team'.startsWith(partial) ? 'match' : 'dim');
+  team.addEventListener('click', () => insertMention('team'));
+  chips.push(team);
+  const brief = document.createElement('button');
+  brief.type = 'button';
+  brief.className = 'brief';
+  brief.innerHTML = '<b>/brief</b><span></span>';
+  brief.querySelector('span').textContent = state.brief || 'roblox · cozy · higgsfield · wolf · or your own';
+  brief.title = state.brief || 'Set the project brief';
+  brief.addEventListener('click', () => {
+    input.value = '/brief ';
+    input.focus();
+    renderChips();
+  });
+  chips.push(brief);
+  $('chips').replaceChildren(...chips);
+}
+
+function insertMention(name) {
+  const input = $('input');
+  const caret = input.selectionStart ?? input.value.length;
+  const before = input.value.slice(0, caret);
+  const after = input.value.slice(caret);
+  const m = before.match(/(?:^|\s)@[\w-]*$/);
+  let next;
+  if (m) next = before.slice(0, before.length - m[0].trimStart().length) + `@${name} ` + after.trimStart();
+  else next = `@${name} ` + input.value.replace(/^@[\w-]+\s*/, '');
+  input.value = next;
+  const pos = next.indexOf(`@${name} `) + name.length + 2;
+  input.focus();
+  input.setSelectionRange(pos, pos);
+  renderChips();
+  updateInputTarget();
+}
+
+function updateInputTarget() {
+  const v = $('input').value.trim();
+  let label = '→ @name';
+  let color = '#a1a1aa';
+  if (v.startsWith('/brief')) label = '→ project brief';
+  else {
+    const { targets } = routePrompt(expandMentions(v) || 'x', agents.map((a) => a.id), state.focused?.id);
+    if (targets.length > 1) label = '→ everyone';
+    else if (targets.length === 1) {
+      label = `→ ${byId[targets[0]].def.name}`;
+      color = byId[targets[0]].def.color;
+    }
+  }
+  $('input-target').textContent = label;
+  $('input-target').style.color = color;
+}
+
+// "@cr fix this" -> "@critic fix this" when the prefix is unambiguous.
+function expandMentions(text) {
+  return text.replace(/(^|\s)@([\w-]+)/g, (all, pre, word) => {
+    const w = word.toLowerCase();
+    const names = [...agents.map((a) => a.id), 'team'].filter((n) => n.startsWith(w));
+    return names.length === 1 ? `${pre}@${names[0]}` : all;
+  });
+}
+
 function openInput() {
   state.typing = true;
   document.body.classList.add('typing');
-  const target = state.focused;
-  $('input-target').textContent = target ? `→ ${target.def.name}` : '→ @name';
-  $('input-target').style.color = target?.def.color ?? '#a1a1aa';
   $('inputbar').classList.remove('hidden');
   keys.clear();
   if (controls.isLocked) controls.unlock();
+  renderChips();
+  updateInputTarget();
   setTimeout(() => $('input').focus(), 0);
   updateHint();
 }
@@ -458,11 +579,36 @@ $('inputbar').addEventListener('submit', (e) => {
   e.preventDefault();
   const text = $('input').value.trim();
   closeInput();
-  if (text) submitPrompt(text);
+  if (!text) return;
+  if (/^\/brief\b/i.test(text)) return handleBrief(text.replace(/^\/brief\s*/i, ''));
+  submitPrompt(expandMentions(text));
 });
 $('input').addEventListener('keydown', (e) => {
   if (e.key === 'Escape') closeInput();
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const input = $('input');
+    const before = input.value.slice(0, input.selectionStart ?? input.value.length);
+    const partial = before.match(/(?:^|\s)@([\w-]*)$/)?.[1]?.toLowerCase();
+    if (partial === undefined) return insertMention((state.focused ?? agents[0]).def.name);
+    const hit = [...agents.map((a) => a.def.name), 'team'].find((n) => n.toLowerCase().startsWith(partial));
+    if (hit) insertMention(hit);
+  }
 });
+$('input').addEventListener('input', () => {
+  renderChips();
+  updateInputTarget();
+});
+
+function handleBrief(arg) {
+  const key = arg.trim().toLowerCase();
+  if (!key) {
+    toast(state.brief ? `Current brief: ${state.brief}` : `No brief yet. Try /brief ${Object.keys(BRIEF_PRESETS).join(', /brief ')}.`);
+    return;
+  }
+  if (key === 'clear' || key === 'none') return setBrief('');
+  setBrief(BRIEF_PRESETS[key] ?? arg.trim());
+}
 
 function submitPrompt(raw) {
   const { targets, text } = routePrompt(raw, agents.map((a) => a.id), state.focused?.id);
@@ -512,6 +658,7 @@ async function ask(agent, prompt) {
       history,
       prompt,
       office: state.feed.slice(-12),
+      brief: state.brief,
       signal: ctrl.signal,
     })) {
       parser.push(chunk);
@@ -519,7 +666,7 @@ async function ask(agent, prompt) {
     const { say, screen } = parser.end();
     if (!say && !screen) throw new Error('Empty reply');
     if (!screen) agent.screen.append(say);
-    agent.history.push({ role: 'user', content: prompt }, { role: 'assistant', content: `SAY: ${say}\nSCREEN:\n${screen.slice(0, 4000)}` });
+    agent.history.push({ role: 'user', content: prompt }, { role: 'assistant', content: `SAY: ${say}\nSCREEN:\n${screen.slice(0, 7500)}` });
     if (agent.history.length > 24) agent.history.splice(0, agent.history.length - 24);
     const lines = screen.split('\n').filter((l) => l.trim()).length;
     const tests = (screen.match(/✓|\bPASS\b|passed/g) || []).length;
@@ -582,6 +729,7 @@ function loop(now) {
     feed(AMBIENT[Math.floor(Math.random() * AMBIENT.length)]());
   }
 
+  state.stats.brief = state.brief;
   office.board.update(dt, state.stats, state.feed);
 
   rosterTick -= dt;

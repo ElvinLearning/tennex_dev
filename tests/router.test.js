@@ -33,6 +33,11 @@ describe('routePrompt', () => {
     expect(routePrompt('Team, what should we ship today?', IDS)).toEqual({ targets: IDS, text: 'what should we ship today?' });
   });
 
+  it('routes a single @mention anywhere in the sentence', () => {
+    expect(routePrompt('can you @critic look at this', IDS, 'tenx').targets).toEqual(['critic']);
+    expect(routePrompt('email@tenx.dev is mine', IDS, 'vector').targets).toEqual(['vector']);
+  });
+
   it('does not match names inside other words', () => {
     expect(routePrompt('vectorize this loop', IDS, 'tenx').targets).toEqual(['tenx']);
   });

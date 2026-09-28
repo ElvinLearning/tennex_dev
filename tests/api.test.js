@@ -29,7 +29,12 @@ describe('buildMessages', () => {
 
   it('clips oversized input', () => {
     const m = buildMessages({ prompt: 'x'.repeat(10_000) });
-    expect(m[0].content.length).toBeLessThan(2_100);
+    expect(m[0].content.length).toBeLessThan(4_100);
+  });
+
+  it('includes the project brief before the prompt', () => {
+    const m = buildMessages({ prompt: 'go', brief: 'Roblox obby' });
+    expect(m[0].content.indexOf('[Project brief]\nRoblox obby')).toBeLessThan(m[0].content.indexOf('Human says: go'));
   });
 });
 

@@ -13,7 +13,7 @@ export async function checkHealth() {
 }
 
 // Yields text chunks of the agent's raw reply.
-export async function* streamReply({ live, agentId, history, prompt, office, signal }) {
+export async function* streamReply({ live, agentId, history, prompt, office, brief, signal }) {
   if (!live) {
     yield* simulateReply({ agentId, prompt, signal });
     return;
@@ -21,7 +21,7 @@ export async function* streamReply({ live, agentId, history, prompt, office, sig
   const res = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ agentId, history, prompt, office }),
+    body: JSON.stringify({ agentId, history, prompt, office, brief }),
     signal,
   });
   if (!res.ok || !res.body) {

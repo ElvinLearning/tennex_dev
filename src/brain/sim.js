@@ -13,7 +13,7 @@ const sleep = (ms, signal) =>
 
 export function topicOf(prompt) {
   const stop = new Set(
-    'a an the to for of and or with me my your you please can could would build make write create add some it this that on in is be ship test deploy hey tenx assert vector critic'.split(
+    'a an the to for of and or with me my your you please can could would build make write create add some it this that on in is be ship test deploy hey tenx assert vector critic what should we us our how why do does get need lets let today now'.split(
       ' ',
     ),
   );
@@ -32,9 +32,9 @@ const SIM = {
     const fn = camel(topic);
     return {
       say: pick([
-        `On it. ${topic.replace(/-/g, ' ')} is shipping in one commit, zero meetings.`,
-        `Easy. I deleted half of it and the rest writes itself.`,
-        `Done before you finished the sentence. Check my screen.`,
+        `First pass of ${topic.replace(/-/g, ' ')} is on my screen. Assert, can you add tests?`,
+        `Kept it small: one module with input validation. Next I'd wire it into the app.`,
+        `Here's a working starting point. Tell me what to change and I'll iterate.`,
       ]),
       screen: `// src/${topic}.ts  (sim mode: add an API key for real code)
 import { z } from "zod";
@@ -52,11 +52,11 @@ export async function ${fn}(raw: unknown) {
 }
 
 async function accelerate<T>(x: T): Promise<T> {
-  // TODO(tenx): make it 10x faster. Already did. It was one line.
+  // Placeholder: sim mode. Add an API key and I'll write the real implementation.
   return x;
 }
 
-// shipped: 1 file, +${18 + Math.floor(Math.random() * 30)} lines, 0 meetings`,
+// next: tests (Assert), review (Critic)`,
     };
   },
   assert(prompt, topic) {
@@ -65,8 +65,8 @@ async function accelerate<T>(x: T): Promise<T> {
     const cases = ['parses valid input', 'rejects bad uuid', 'handles empty payload', 'is idempotent', 'survives 10k calls', 'never returns undefined', 'respects timeouts', 'handles unicode 🚀'];
     return {
       say: pick([
-        `Love it. I wrote ${n} tests for ${topic.replace(/-/g, ' ')} and they're all green.`,
-        `Tests are acceleration. ${n} passing, one edge case caught, you're welcome.`,
+        `I wrote a test file for ${topic.replace(/-/g, ' ')}. Run the command on screen to check it.`,
+        `Tests cover the happy path and bad input. I'd add a load test next.`,
       ]),
       screen: `// tests/${topic}.test.ts
 import { describe, it, expect } from "vitest";
@@ -95,10 +95,10 @@ ${cases
   vector(prompt, topic) {
     return {
       say: pick([
-        `This compounds. ${topic.replace(/-/g, ' ')} is a flywheel, and we should spin it today.`,
-        `Think exponentially. Here's the roadmap: ship, measure, double down.`,
+        `Here's a plan for ${topic.replace(/-/g, ' ')}: small first version, then iterate with real feedback.`,
+        `Roadmap's on my screen. Tenx should start on the first milestone today.`,
       ]),
-      screen: `ROADMAP :: ${topic.toUpperCase()}                    velocity ▲ 10x
+      screen: `PLAN :: ${topic.toUpperCase()}
 
   NOW   ▸ ship v0 of ${topic} behind a flag      owner: Tenx
         ▸ tests on every path                    owner: Assert
@@ -107,19 +107,18 @@ ${cases
   LATER ▸ make it self-improving                 owner: everyone
 
   KPIs
-    time-to-ship     ██████████░░  2.1h  (was 3 weeks)
-    test coverage    ███████████░  93%
-    vibes            ████████████  maximal
+    first playable   ██████░░░░░░  in progress
+    test coverage    ████████░░░░  target 80%
 
-  NEXT ACTION: say "Tenx, build ${topic.replace(/-/g, ' ')}" (sim mode)`,
+  NEXT ACTION: Tenx builds the v0 of ${topic.replace(/-/g, ' ')} (sim mode)`,
     };
   },
   deploy(prompt, topic) {
     const sha = Math.random().toString(16).slice(2, 9);
     return {
       say: pick([
-        `Shipped to prod. It's Friday, and I've never felt calmer.`,
-        `Pipeline's green, canary's healthy, rollback's one command away.`,
+        `Here's the deploy pipeline and the commands, with a rollback step at the end.`,
+        `I've written the release steps. Run them in order and check the health endpoint after.`,
       ]),
       screen: `$ git push origin main
    ${sha}  feat: ${topic}
@@ -140,8 +139,8 @@ $ echo "rollback: kubectl rollout undo deploy/${topic}"   # sim mode`,
     const fn = camel(topic);
     return {
       say: pick([
-        `Mostly great. One bug: you trust input you never validated. Fixed it inline.`,
-        `Approved with one nit. The simplest fix is also the safest one.`,
+        `Mostly solid. One blocking issue: unvalidated input. The fix is on my screen.`,
+        `Looks good with one change: don't swallow errors. Details on screen.`,
       ]),
       screen: `src/${topic}.ts
 @@ -12,7 +12,9 @@ export async function ${fn}(raw) {
@@ -156,9 +155,9 @@ $ echo "rollback: kubectl rollout undo deploy/${topic}"   # sim mode`,
 -  catch (e) {}
 +  catch (e) { log.error(e); throw e; }
 
- 💬 Critic: swallowed errors are how 3am pages are born.
+ 💬 Critic: swallowed errors hide failures. Log and rethrow.
 
- ✅ Approved after fixes. Ship it.   (sim mode)`,
+ ✅ Approve once these are fixed.   (sim mode)`,
     };
   },
 };

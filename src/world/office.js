@@ -421,9 +421,14 @@ export class VelocityBoard {
     g.font = '600 26px ui-monospace, Menlo, monospace';
     g.fillStyle = stats.live ? '#4ade80' : '#fbbf24';
     g.fillText(stats.live ? `● LIVE · ${stats.model}` : '● SIM MODE · add ANTHROPIC_API_KEY to go live', 50, 135);
+    if (stats.brief) {
+      g.font = '500 22px ui-monospace, Menlo, monospace';
+      g.fillStyle = '#e9d5ff';
+      g.fillText(`BRIEF: ${stats.brief.length > 80 ? stats.brief.slice(0, 79) + '…' : stats.brief}`, 50, 162);
+    }
 
     // chart
-    const x0 = 50, y0 = 170, w = 1050, h = 330;
+    const x0 = 50, y0 = 185, w = 1050, h = 315;
     const max = Math.max(...this.history);
     const min = Math.min(...this.history);
     g.strokeStyle = 'rgba(168,85,247,0.2)';
