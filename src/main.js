@@ -670,7 +670,8 @@ async function ask(agent, prompt) {
   const reply = { who: 'agent', text: '' };
   agent.transcript.push(reply);
   agent.screen.startThinking(prompt);
-  if (state.focused === agent || lastPanelAgent === agent) renderPanel(agent);
+  // Show the conversation you just started, even if you called them from across the room.
+  renderPanel(agent);
 
   const parser = new ReplyParser({
     onSay: (d) => {

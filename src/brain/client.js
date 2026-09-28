@@ -13,7 +13,7 @@ export async function checkHealth() {
 }
 
 // Yields text chunks of the agent's raw reply.
-export const SIM_MODEL = { id: 'sim', label: 'Sim (offline, canned replies)', provider: 'Offline' };
+export const SIM_MODEL = { id: 'sim', label: 'Sim (offline)', provider: 'Offline' };
 
 export async function* streamReply({ model, agentId, history, prompt, office, brief, signal }) {
   if (!model || model === 'sim') {

@@ -2,6 +2,7 @@
 // text chunks for (model, system, messages). Model ids are "provider:model".
 //
 //   claude:     Anthropic API        (ANTHROPIC_API_KEY)
+//   nous:       Nous Research API, hosted Hermes, has a free tier (NOUS_API_KEY)
 //   ollama:     local models, free   (OLLAMA_URL, default http://localhost:11434) e.g. Hermes 3
 //   openrouter: hosted open models   (OPENROUTER_API_KEY, OPENROUTER_MODELS)
 //   custom:     any OpenAI-compatible endpoint (OPENAI_COMPAT_URL, _KEY, _MODELS, _NAME),
@@ -63,6 +64,16 @@ function openAIProviders() {
   const out = {
     ollama: { name: 'Ollama (local)', base: `${env('OLLAMA_URL', 'http://localhost:11434').replace(/\/$/, '')}/v1`, key: '' },
   };
+  if (env('NOUS_API_KEY')) {
+    out.nous = {
+      name: 'Nous Research (Hermes)',
+      base: env('NOUS_BASE_URL', 'https://inference-api.nousresearch.com/v1').replace(/\/$/, ''),
+      key: env('NOUS_API_KEY'),
+      // Asked from the API's /models when possible; this list is only the fallback.
+      models: list(env('NOUS_MODELS', 'Hermes-4-70B,Hermes-4-405B')),
+      discover: !env('NOUS_MODELS'),
+    };
+  }
   if (env('OPENROUTER_API_KEY')) {
     out.openrouter = {
       name: 'OpenRouter',
@@ -78,6 +89,7 @@ function openAIProviders() {
       base: env('OPENAI_COMPAT_URL').replace(/\/$/, ''),
       key: env('OPENAI_COMPAT_KEY'),
       models: list(env('OPENAI_COMPAT_MODELS', 'default')),
+      discover: !env('OPENAI_COMPAT_MODELS'),
     };
   }
   return out;
@@ -187,15 +199,40 @@ async function ollamaModels(base) {
   return models;
 }
 
+// OpenAI-compatible servers list their models at GET /models. Use that so
+// nobody has to guess exact model names; fall back to the configured list.
+const discovered = new Map();
+async function discoverModels(key, p) {
+  const hit = discovered.get(key);
+  if (hit && Date.now() - hit.at < 60_000) return hit.models;
+  let models = p.models;
+  try {
+    const res = await fetch(`${p.base}/models`, {
+      headers: p.key ? { authorization: `Bearer ${p.key}` } : {},
+      signal: AbortSignal.timeout(3000),
+    });
+    if (res.ok) {
+      const ids = ((await res.json()).data ?? []).map((m) => m.id).filter(Boolean);
+      if (ids.length) models = ids;
+    }
+  } catch {
+    // unreachable right now: keep the configured list
+  }
+  discovered.set(key, { at: Date.now(), models });
+  return models;
+}
+
 // [{ id: 'provider:model', label, provider }]
 export async function listModels() {
   const out = [];
   if (claudeReady()) for (const m of CLAUDE_MODELS) out.push({ id: `claude:${m.model}`, label: m.label, provider: 'Claude' });
   const providers = openAIProviders();
   for (const name of await ollamaModels(providers.ollama.base)) out.push({ id: `ollama:${name}`, label: name, provider: providers.ollama.name });
-  for (const key of ['openrouter', 'custom']) {
+  for (const key of ['nous', 'openrouter', 'custom']) {
     const p = providers[key];
-    if (p) for (const m of p.models) out.push({ id: `${key}:${m}`, label: m, provider: p.name });
+    if (!p) continue;
+    const models = p.discover ? await discoverModels(key, p) : p.models;
+    for (const m of models) out.push({ id: `${key}:${m}`, label: m, provider: p.name });
   }
   return out;
 }

@@ -31,6 +31,11 @@ describe('OpenAI-compatible provider (fake Ollama)', () => {
         res.writeHead(200, { 'content-type': 'application/json' });
         return res.end(JSON.stringify({ models: [{ name: 'hermes3:8b' }] }));
       }
+      if (req.url === '/v1/models') {
+        if (req.headers.authorization !== 'Bearer nous-key') return res.writeHead(401).end();
+        res.writeHead(200, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify({ data: [{ id: 'Hermes-4-70B' }, { id: 'Hermes-4-405B' }] }));
+      }
       if (req.url === '/v1/chat/completions') {
         let body = '';
         req.on('data', (c) => (body += c));
@@ -75,5 +80,31 @@ describe('OpenAI-compatible provider (fake Ollama)', () => {
   it('turns HTTP errors into readable messages', async () => {
     const gen = streamModel('ollama:broken', { system: 'S', messages: [] });
     await expect(gen.next()).rejects.toThrow(/Ollama \(local\) returned 404: model not found/);
+  });
+});
+
+describe('Nous provider', () => {
+  let server;
+  beforeAll(async () => {
+    server = http.createServer((req, res) => {
+      if (req.url === '/v1/models' && req.headers.authorization === 'Bearer nous-key') {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify({ data: [{ id: 'Hermes-4-70B' }, { id: 'Hermes-4-405B' }] }));
+      }
+      res.writeHead(401).end();
+    });
+    await new Promise((r) => server.listen(0, r));
+    process.env.NOUS_API_KEY = 'nous-key';
+    process.env.NOUS_BASE_URL = `http://127.0.0.1:${server.address().port}/v1`;
+  });
+  afterAll(() => {
+    server.close();
+    delete process.env.NOUS_API_KEY;
+    delete process.env.NOUS_BASE_URL;
+  });
+
+  it('discovers the models the API key can use', async () => {
+    const ids = (await listModels()).filter((m) => m.id.startsWith('nous:')).map((m) => m.id);
+    expect(ids).toEqual(['nous:Hermes-4-70B', 'nous:Hermes-4-405B']);
   });
 });

@@ -19,6 +19,16 @@ npm run dev        # http://localhost:5173
 
 Without any model configured the agents run in **sim mode** (canned in-character replies). Press `Esc` in-game to open **Agent brains** and pick a model per agent. Keys stay on the server (`server/providers.js`); copy `.env.example` to `.env` to configure.
 
+### Free, no GPU: Hermes via the Nous Research API
+
+```bash
+cp .env.example .env
+# edit .env and set NOUS_API_KEY=<your key from the Nous Portal>
+npm run dev
+```
+
+Press `Esc` → Agent brains; the Hermes models your key can use are listed automatically. If your Nous dashboard shows a different API URL, set `NOUS_BASE_URL`.
+
 ### Free: Hermes on your own machine (Ollama)
 
 ```bash
@@ -36,6 +46,7 @@ Then press `Esc` → Agent brains → pick `hermes3` for everyone (or just some 
 
 | Provider | Set in `.env` | Notes |
 |---|---|---|
+| Nous Research | `NOUS_API_KEY` | hosted Hermes, free tier, models auto-listed |
 | Claude | `ANTHROPIC_API_KEY` | Opus 5.5, Sonnet 5.5, Haiku 4.5 |
 | OpenRouter | `OPENROUTER_API_KEY`, `OPENROUTER_MODELS` | hosted Hermes and other open models; some have free variants (check openrouter.ai/models) |
 | Any OpenAI-compatible server | `OPENAI_COMPAT_URL`, `OPENAI_COMPAT_MODELS`, `OPENAI_COMPAT_NAME` | LM Studio, vLLM, llama.cpp, or an agent framework that serves `/v1/chat/completions` |

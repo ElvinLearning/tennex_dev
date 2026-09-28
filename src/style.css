@@ -181,3 +181,14 @@ body.typing #toasts { bottom: 150px; }
 .card { max-height: calc(100vh - 32px); overflow-y: auto; }
 #roster .agent .model { display: block; color: #71717a; font: 500 10px ui-monospace, Menlo, monospace; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #toasts { z-index: 16; }
+
+/* Agent chat panel: solid and high-contrast so it reads over the bright 3D scene. */
+#panel { width: min(430px, 44vw); background: #0e0c16; border-color: rgba(255, 255, 255, 0.16); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55); backdrop-filter: none; }
+#panel header { background: #16131f; }
+#panel header strong { font-size: 15px; }
+#panel header em { color: #b4b4bd; }
+#panel-log { font-size: 15px; line-height: 1.5; gap: 10px; }
+#panel-log .msg { color: #f4f4f5; background: #1c1928; padding: 9px 12px; }
+#panel-log .msg.you { background: #3a2463; color: #fff; }
+#panel-log .msg.agent { border-left-width: 4px; }
+#panel-log .msg.err { color: #fecaca; background: #3b1219; }
