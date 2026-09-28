@@ -115,7 +115,7 @@ addEventListener('keydown', (e) => {
   keys.add(e.code);
   if (e.repeat) return;
   switch (e.code) {
-    case 'KeyT':
+    case 'KeyV':
       startListening();
       break;
     case 'Enter':
@@ -143,7 +143,7 @@ addEventListener('keydown', (e) => {
 });
 addEventListener('keyup', (e) => {
   keys.delete(e.code);
-  if (e.code === 'KeyT') stopListening();
+  if (e.code === 'KeyV') stopListening();
 });
 addEventListener('blur', () => {
   keys.clear();
@@ -346,7 +346,7 @@ function updateHint() {
   }
   hint.classList.remove('hidden');
   hint.style.setProperty('--hint-color', a.def.color);
-  const talk = voiceSupport.listen ? '<kbd>T</kbd> hold to talk · ' : '';
+  const talk = voiceSupport.listen ? '<kbd>V</kbd> hold to talk · ' : '';
   hint.innerHTML = state.screenView
     ? `Watching <b></b>'s screen · ${talk}<kbd>Enter</kbd> type · <kbd>F</kbd> leave`
     : `<b></b> <span style="color:#a1a1aa">${a.def.title}</span> · ${talk}<kbd>Enter</kbd> type · <kbd>F</kbd> watch screen`;

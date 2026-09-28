@@ -25,7 +25,7 @@ Without an API key the agents run in **sim mode** (canned in-character replies).
 |---|---|
 | Click | enter the office (mouse look) |
 | `WASD` / arrows, `Shift` | walk, sprint |
-| `T` (hold) | push-to-talk to the agent you're facing (Chrome/Edge) |
+| `V` (hold) | push-to-talk to the agent you're facing (Chrome/Edge) |
 | `Enter` | type a prompt instead |
 | `F` | zoom into that agent's monitor (again to leave) |
 | `1`–`5` | walk to an agent's desk |
