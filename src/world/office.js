@@ -420,7 +420,7 @@ export class VelocityBoard {
     g.fillText('// ACCELERATE', 330, 90);
     g.font = '600 26px ui-monospace, Menlo, monospace';
     g.fillStyle = stats.live ? '#4ade80' : '#fbbf24';
-    g.fillText(stats.live ? `● LIVE · ${stats.model}` : '● SIM MODE · add ANTHROPIC_API_KEY to go live', 50, 135);
+    g.fillText(stats.live ? `● LIVE · ${stats.model}` : '● SIM MODE · press Esc to pick a model', 50, 135);
     if (stats.brief) {
       g.font = '500 22px ui-monospace, Menlo, monospace';
       g.fillStyle = '#e9d5ff';

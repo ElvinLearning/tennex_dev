@@ -1,11 +1,12 @@
 // Tiny API for the office. Framework-free so it can run as Vite dev middleware
 // and inside the plain Node production server.
 //
-//   GET  /api/health  -> { live: boolean, model }
+//   GET  /api/health  -> { live, models: [{ id, label, provider }], defaultModel }
 //   POST /api/chat    -> text/event-stream of { t } text deltas, then { done } or { error }
 
 import Anthropic from '@anthropic-ai/sdk';
 import { AGENT_BY_ID, systemPromptFor } from '../src/agents/roster.js';
+import { listModels, streamModel, ProviderError } from './providers.js';
 
 try {
   process.loadEnvFile?.('.env');
@@ -13,16 +14,16 @@ try {
   // no .env file: fine, fall back to the real environment
 }
 
-const MODEL = process.env.TENNEX_MODEL || 'claude-opus-5-5';
-const EFFORT = process.env.TENNEX_EFFORT || 'low'; // snappy replies for a spoken conversation
 const MAX_BODY = 200_000;
 const MAX_HISTORY = 24;
 const MAX_TEXT = 8_000;
 
-const hasCredentials = () => Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);
-
-let client;
-const getClient = () => (client ??= new Anthropic());
+// TENNEX_MODEL picks the default brain, e.g. "claude:claude-opus-5-5" or "ollama:hermes3".
+function defaultModel(models) {
+  const want = process.env.TENNEX_MODEL;
+  const hit = want && models.find((m) => m.id === want || m.id === `claude:${want}`);
+  return (hit ?? models[0])?.id ?? null;
+}
 
 function readBody(req) {
   return new Promise((resolve, reject) => {
@@ -80,7 +81,9 @@ async function handleChat(req, res) {
   const { agentId, prompt } = body ?? {};
   if (!AGENT_BY_ID[agentId]) return sendJson(res, 400, { error: 'Unknown agent' });
   if (!prompt || typeof prompt !== 'string') return sendJson(res, 400, { error: 'Missing prompt' });
-  if (!hasCredentials()) return sendJson(res, 503, { error: 'No ANTHROPIC_API_KEY configured; running in sim mode' });
+  const models = await listModels();
+  const model = body.model;
+  if (!models.some((m) => m.id === model)) return sendJson(res, 400, { error: `Model not available: ${model}` });
 
   res.writeHead(200, {
     'content-type': 'text/event-stream',
@@ -88,34 +91,20 @@ async function handleChat(req, res) {
     connection: 'keep-alive',
   });
   const send = (obj) => res.write(`data: ${JSON.stringify(obj)}\n\n`);
-
-  const stream = getClient().beta.messages.stream({
-    model: MODEL,
-    max_tokens: 64000,
-    thinking: { type: 'adaptive' },
-    output_config: { effort: EFFORT },
-    // If a safety classifier declines, let the API re-route to its recommended fallback model.
-    betas: ['server-side-fallback-2026-07-01'],
-    fallbacks: 'default',
-    cache_control: { type: 'ephemeral' },
-    system: systemPromptFor(agentId),
-    messages: buildMessages(body),
-  });
   // Stop paying for tokens nobody will see if the player walks away.
-  res.on('close', () => stream.abort());
+  const ctrl = new AbortController();
+  res.on('close', () => ctrl.abort());
 
   try {
-    for await (const event of stream) {
-      if (event.type === 'content_block_start' && event.content_block.type === 'thinking') send({ thinking: true });
-      if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') send({ t: event.delta.text });
+    for await (const text of streamModel(model, { system: systemPromptFor(agentId), messages: buildMessages(body), signal: ctrl.signal })) {
+      send({ t: text });
     }
-    const final = await stream.finalMessage();
-    if (final.stop_reason === 'refusal') send({ error: 'The agent declined that request.' });
-    else send({ done: true, stop: final.stop_reason, model: final.model });
+    send({ done: true, model });
   } catch (err) {
-    if (err instanceof Anthropic.APIUserAbortError) return;
+    if (ctrl.signal.aborted || err instanceof Anthropic.APIUserAbortError) return res.end();
     let message = 'Agent crashed. Check the server log.';
-    if (err instanceof Anthropic.AuthenticationError) message = 'Invalid Anthropic API key.';
+    if (err instanceof ProviderError) message = err.message;
+    else if (err instanceof Anthropic.AuthenticationError) message = 'Invalid Anthropic API key.';
     else if (err instanceof Anthropic.RateLimitError) message = 'Rate limited. Take a breath and try again.';
     else if (err instanceof Anthropic.APIConnectionError) message = 'Could not reach the Claude API.';
     else if (err instanceof Anthropic.APIError) message = `Claude API error ${err.status ?? ''}`.trim();
@@ -129,7 +118,10 @@ async function handleChat(req, res) {
 export function apiMiddleware(req, res, next) {
   const url = new URL(req.url, 'http://x');
   if (url.pathname === '/api/health' && req.method === 'GET') {
-    return sendJson(res, 200, { live: hasCredentials(), model: MODEL });
+    listModels()
+      .then((models) => sendJson(res, 200, { live: models.length > 0, models, defaultModel: defaultModel(models) }))
+      .catch(() => sendJson(res, 200, { live: false, models: [] }));
+    return;
   }
   if (url.pathname === '/api/chat' && req.method === 'POST') {
     handleChat(req, res).catch((err) => {

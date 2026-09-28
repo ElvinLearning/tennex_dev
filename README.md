@@ -17,7 +17,28 @@ npm install
 npm run dev        # http://localhost:5173
 ```
 
-Without an API key the agents run in **sim mode** (canned in-character replies). To make them real, copy `.env.example` to `.env` and set `ANTHROPIC_API_KEY`. The key stays on the server (`server/api.js` streams from Claude).
+Without any model configured the agents run in **sim mode** (canned in-character replies). Press `Esc` in-game to open **Agent brains** and pick a model per agent. Keys stay on the server (`server/providers.js`); copy `.env.example` to `.env` to configure.
+
+### Free: Hermes on your own machine (Ollama)
+
+```bash
+# 1. install Ollama from https://ollama.com, then pull a Hermes model
+ollama pull hermes3          # ~5 GB; smaller/larger tags exist, see ollama.com/library/hermes3
+# 2. optional but recommended: give it room for the office context
+OLLAMA_CONTEXT_LENGTH=8192 ollama serve
+# 3. run the office; Ollama models are auto-detected
+npm run dev
+```
+
+Then press `Esc` → Agent brains → pick `hermes3` for everyone (or just some agents). Any other model you pull (`ollama pull qwen3`, `llama3.2`, …) shows up too. Models that think in `<think>` tags are handled; the thinking is hidden.
+
+### Other providers
+
+| Provider | Set in `.env` | Notes |
+|---|---|---|
+| Claude | `ANTHROPIC_API_KEY` | Opus 5.5, Sonnet 5.5, Haiku 4.5 |
+| OpenRouter | `OPENROUTER_API_KEY`, `OPENROUTER_MODELS` | hosted Hermes and other open models; some have free variants (check openrouter.ai/models) |
+| Any OpenAI-compatible server | `OPENAI_COMPAT_URL`, `OPENAI_COMPAT_MODELS`, `OPENAI_COMPAT_NAME` | LM Studio, vLLM, llama.cpp, or an agent framework that serves `/v1/chat/completions` |
 
 ## Controls
 
@@ -27,7 +48,8 @@ Without an API key the agents run in **sim mode** (canned in-character replies).
 | `WASD` / arrows, `Shift` | walk, sprint |
 | `V` (hold) | push-to-talk to the agent you're facing (Chrome/Edge) |
 | `Enter` | type a prompt instead |
-| `F` | zoom into that agent's monitor (again to leave); scroll to read, `C` to copy |
+| `F` | zoom into that agent's monitor (again to leave); scroll to read, `C` to open a copyable view |
+| `Esc` | pause; pick each agent's model |
 | `1`–`5` | walk to an agent's desk |
 | `M` | mute agent voices |
 

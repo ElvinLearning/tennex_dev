@@ -13,15 +13,17 @@ export async function checkHealth() {
 }
 
 // Yields text chunks of the agent's raw reply.
-export async function* streamReply({ live, agentId, history, prompt, office, brief, signal }) {
-  if (!live) {
+export const SIM_MODEL = { id: 'sim', label: 'Sim (offline, canned replies)', provider: 'Offline' };
+
+export async function* streamReply({ model, agentId, history, prompt, office, brief, signal }) {
+  if (!model || model === 'sim') {
     yield* simulateReply({ agentId, prompt, signal });
     return;
   }
   const res = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ agentId, history, prompt, office, brief }),
+    body: JSON.stringify({ model, agentId, history, prompt, office, brief }),
     signal,
   });
   if (!res.ok || !res.body) {

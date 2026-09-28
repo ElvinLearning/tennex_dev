@@ -35,6 +35,14 @@
       </div>
     </form>
 
+    <div id="sheet" class="hidden" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+      <div class="box">
+        <header><span class="dot" id="sheet-dot"></span><b id="sheet-title"></b><span>Ctrl/Cmd+C copies the selection · Esc closes</span></header>
+        <textarea id="sheet-text" readonly spellcheck="false"></textarea>
+        <div class="actions"><button type="button" id="sheet-close">Close</button><button type="button" id="sheet-copy" class="primary">Copy all</button></div>
+      </div>
+    </div>
+
     <div id="keys" class="hud">
       <span><kbd>WASD</kbd> move</span>
       <span><kbd>Shift</kbd> sprint</span>
@@ -54,9 +62,16 @@
           <li>Walk up behind an agent to see their screen, or press <kbd>F</kbd> to watch it up close.</li>
           <li>Hold <kbd>V</kbd> and <b>say</b> what you want built. Let go to send. They answer out loud and do the work on screen.</li>
           <li>Say a name first (<i>"Critic, review Tenx's code"</i>) to reach anyone, or <i>"Team, …"</i> to reach everyone.</li>
+          <li>Press <kbd>Esc</kbd> any time to come back here and change which AI model each agent uses.</li>
           <li>No mic? Press <kbd>Enter</kbd> to type. Agent names show up there; type <kbd>@</kbd> and press <kbd>Tab</kbd> to complete one.</li>
           <li>Set what the team is working on with <i>/brief roblox</i>, <i>/brief cozy</i>, <i>/brief higgsfield</i>, <i>/brief wolf</i>, or <i>/brief</i> plus your own words.</li>
         </ul>
+        <section id="brains" aria-labelledby="brains-title">
+          <h2 id="brains-title">Agent brains</h2>
+          <div class="brain-row all"><label for="model-all">Everyone</label><select id="model-all"></select></div>
+          <div id="brain-list"></div>
+          <p id="brains-hint" class="fine"></p>
+        </section>
         <button id="enter">Enter the office</button>
         <p id="support" class="fine"></p>
       </div>

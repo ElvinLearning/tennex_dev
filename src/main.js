@@ -9,7 +9,7 @@ import { AGENTS, BRIEF_PRESETS } from './agents/roster.js';
 import { buildOffice, ROOM } from './world/office.js';
 import { AgentActor } from './world/agent-actor.js';
 import { ReplyParser } from './brain/parser.js';
-import { checkHealth, streamReply } from './brain/client.js';
+import { checkHealth, streamReply, SIM_MODEL } from './brain/client.js';
 import { routePrompt } from './brain/router.js';
 import { PushToTalk, Speaker, voiceSupport } from './voice.js';
 
@@ -84,7 +84,8 @@ function toast(text) {
   el.className = 'toast';
   el.textContent = text;
   $('toasts').appendChild(el);
-  setTimeout(() => el.remove(), 5000);
+  setTimeout(() => el.classList.add('out'), 4500);
+  setTimeout(() => el.remove(), 5200);
   while ($('toasts').children.length > 4) $('toasts').firstChild.remove();
 }
 
@@ -100,17 +101,18 @@ function setPaused(p) {
 setPaused(true);
 
 $('enter').addEventListener('click', () => {
+  $('enter').textContent = 'Back to the office';
   controls.lock();
   if (voiceSupport.speak) speechSynthesis.getVoices(); // warm up voices on a user gesture
 });
 controls.addEventListener('lock', () => setPaused(false));
 controls.addEventListener('unlock', () => {
-  if (state.screenView && !state.typing) exitScreenView();
-  if (!state.typing) setPaused(true);
+  if (state.screenView && !state.typing && !state.sheet) exitScreenView();
+  if (!state.typing && !state.sheet) setPaused(true);
 });
 
 addEventListener('keydown', (e) => {
-  if (state.typing) return;
+  if (state.typing || state.sheet) return;
   const active = controls.isLocked || state.screenView;
   if (!active) return;
   keys.add(e.code);
@@ -157,20 +159,55 @@ addEventListener('blur', () => {
 addEventListener(
   'wheel',
   (e) => {
-    if (!state.screenView || state.typing) return;
+    if (!state.screenView || state.typing || state.sheet) return;
     state.screenView.agent.screen.scrollBy(e.deltaY > 0 ? -3 : 3);
   },
   { passive: true },
 );
 
+// The copy sheet: the agent's full screen text, selectable, with a Copy button
+// (a click is what browsers and embedded viewers reliably allow clipboard writes from).
 function copyScreen(agent) {
   const text = agent.screen.text;
   if (!text) return toast(`Nothing to copy yet. Give ${agent.def.name} a task first.`);
-  navigator.clipboard
-    ?.writeText(text)
-    .then(() => toast(`Copied ${agent.def.name}'s screen (${text.split('\n').length} lines).`))
-    .catch(() => toast('Clipboard is blocked here. Select the text from the chat panel instead.'));
+  state.sheet = true;
+  if (controls.isLocked) controls.unlock();
+  $('sheet-title').textContent = `${agent.def.name}'s screen`;
+  $('sheet-dot').style.color = agent.def.color;
+  $('sheet-text').value = text;
+  $('sheet').classList.remove('hidden');
+  setTimeout(() => {
+    $('sheet-text').focus();
+    $('sheet-text').select();
+  }, 0);
 }
+
+function closeSheet() {
+  if (!state.sheet) return;
+  state.sheet = false;
+  $('sheet').classList.add('hidden');
+  if (!state.screenView) setPaused(true);
+}
+
+$('sheet-copy').addEventListener('click', () => {
+  const text = $('sheet-text').value;
+  const done = () => {
+    toast(`Copied ${text.split('\n').length} lines.`);
+    closeSheet();
+  };
+  const fallback = () => {
+    $('sheet-text').focus();
+    $('sheet-text').select();
+    toast('This browser blocked the clipboard. The text is selected: press Ctrl/Cmd+C.');
+  };
+  if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done, fallback);
+  else fallback();
+});
+$('sheet-close').addEventListener('click', closeSheet);
+$('sheet').addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeSheet();
+  e.stopPropagation();
+});
 
 function collide(pos) {
   for (const c of office.colliders) {
@@ -347,7 +384,7 @@ for (const a of agents) {
   const el = document.createElement('div');
   el.className = 'agent';
   el.style.color = a.def.color;
-  el.innerHTML = `<span class="dot"></span><b></b><span class="num">[${a.index + 1}]</span><span class="status"></span>`;
+  el.innerHTML = `<span class="dot"></span><span><b></b><span class="model"></span></span><span class="num">[${a.index + 1}]</span><span class="status"></span>`;
   el.querySelector('b').textContent = a.def.name;
   el.querySelector('b').style.color = '#fff';
   $('roster').appendChild(el);
@@ -653,7 +690,7 @@ async function ask(agent, prompt) {
   const history = agent.history.slice();
   try {
     for await (const chunk of streamReply({
-      live: state.live,
+      model: state.agentModel[agent.id],
       agentId: agent.id,
       history,
       prompt,
@@ -742,18 +779,92 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 
+// ---------------------------------------------------------------- model picker
+state.models = [SIM_MODEL];
+state.agentModel = Object.fromEntries(agents.map((a) => [a.id, 'sim']));
+
+const modelLabel = (id) => state.models.find((m) => m.id === id)?.label ?? id;
+
+function fillSelect(select, value, { mixed = false } = {}) {
+  select.replaceChildren();
+  if (mixed) select.append(new Option('Mixed: set per agent below', ''));
+  const groups = {};
+  for (const m of state.models) (groups[m.provider] ??= []).push(m);
+  for (const [provider, models] of Object.entries(groups)) {
+    const g = document.createElement('optgroup');
+    g.label = provider;
+    for (const m of models) g.append(new Option(m.label, m.id));
+    select.append(g);
+  }
+  select.value = value;
+}
+
+function renderBrains() {
+  const values = new Set(Object.values(state.agentModel));
+  fillSelect($('model-all'), values.size === 1 ? [...values][0] : '', { mixed: values.size > 1 });
+  const rows = agents.map((a) => {
+    const row = document.createElement('div');
+    row.className = 'brain-row';
+    row.innerHTML = `<label for="model-${a.id}"><span class="dot"></span><span></span><em></em></label><select id="model-${a.id}"></select>`;
+    row.querySelector('.dot').style.color = a.def.color;
+    row.querySelector('label span:nth-child(2)').textContent = a.def.name;
+    row.querySelector('em').textContent = a.def.title;
+    const sel = row.querySelector('select');
+    fillSelect(sel, state.agentModel[a.id]);
+    sel.addEventListener('change', () => setAgentModel(a.id, sel.value));
+    return row;
+  });
+  $('brain-list').replaceChildren(...rows);
+  const live = state.models.length > 1;
+  $('brains-hint').textContent = live
+    ? 'Each agent keeps its own model. Your picks are remembered in this browser.'
+    : 'Only the offline sim is available. Run locally with Ollama (free, e.g. a Hermes model) or add an API key to unlock real models. See the README.';
+  updateModeLine();
+}
+
+function setAgentModel(id, model) {
+  state.agentModel[id] = model;
+  try {
+    localStorage.setItem('tennex.models', JSON.stringify(state.agentModel));
+  } catch {}
+  renderBrains();
+}
+
+$('model-all').addEventListener('change', (e) => {
+  if (!e.target.value) return;
+  for (const a of agents) state.agentModel[a.id] = e.target.value;
+  setAgentModel(agents[0].id, e.target.value);
+});
+
+function updateModeLine() {
+  const used = [...new Set(Object.values(state.agentModel))];
+  const live = used.some((m) => m !== 'sim');
+  const summary = used.map(modelLabel).join(' · ');
+  Object.assign(state.stats, { live, model: summary });
+  const mode = $('mode');
+  mode.className = `mode ${live ? 'live' : 'sim'}`;
+  mode.textContent = live ? `● LIVE: ${summary}` : '● SIM MODE: canned replies. Pick a real model below when one is available.';
+  for (const a of agents) {
+    const el = rosterEls[a.id].querySelector('.model');
+    if (el) el.textContent = modelLabel(state.agentModel[a.id]);
+  }
+}
+
 (async function boot() {
   if (!voiceSupport.listen) $('support').textContent = 'Heads up: this browser has no speech recognition (Chrome/Edge do). Typing still works.';
   const health = await checkHealth();
-  state.live = Boolean(health.live);
-  state.model = health.model || '';
-  Object.assign(state.stats, { live: state.live, model: state.model });
-  const mode = $('mode');
-  mode.className = `mode ${state.live ? 'live' : 'sim'}`;
-  mode.textContent = state.live
-    ? `● LIVE: agents are powered by ${state.model}`
-    : '● SIM MODE: canned agent brains. Set ANTHROPIC_API_KEY and run `npm run dev` to go live.';
-  feed(state.live ? `Office online. Brains: ${state.model}` : 'Office online in sim mode');
+  state.models = [...(health.models ?? []), SIM_MODEL];
+  let saved = {};
+  try {
+    saved = JSON.parse(localStorage.getItem('tennex.models') || '{}');
+  } catch {}
+  const available = new Set(state.models.map((m) => m.id));
+  for (const a of agents) {
+    state.agentModel[a.id] = available.has(saved[a.id]) ? saved[a.id] : health.defaultModel ?? 'sim';
+  }
+  renderBrains();
+  const providers = [...new Set((health.models ?? []).map((m) => m.provider))];
+  feed(providers.length ? `Office online. Providers: ${providers.join(', ')}` : 'Office online in sim mode');
 })();
 
 // Debug/automation handle (used by the smoke test; handy in the console too).
