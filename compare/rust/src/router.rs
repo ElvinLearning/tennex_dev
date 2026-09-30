@@ -16,7 +16,7 @@ impl AgentId {
 
     fn aliases(self) -> &'static [&'static str] {
         match self {
-            Self::Tenx => &["tenx", "10x", "ten x"], // R4 AC2: speech-recognition spellings
+            Self::Tenx => &["tenx", "10x", "ten x", "tennex"], // R4 AC2: speech-recognition spellings
             Self::Assert => &["assert"],
             Self::Vector => &["vector", "victor"],
             Self::Deploy => &["deploy"],
@@ -131,6 +131,7 @@ mod tests {
     fn understands_speech_spellings_of_tenx() {
         assert_eq!(route("hey 10x build a CLI", None), One(Tenx, "build a CLI"));
         assert_eq!(route("ten x make it faster", None), One(Tenx, "make it faster"));
+        assert_eq!(route("Tennex, write a parser", None), One(Tenx, "write a parser"));
     }
 
     #[test]
