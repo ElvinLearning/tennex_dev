@@ -10,6 +10,10 @@ Home of all things accelerationist and test-maximalist. A Three.js office where 
 | **Deploy** | Platform Engineer (CI, deploys, APIs/CLIs) | terminal |
 | **Critic** | Principal Reviewer | code review diff |
 
+## Spec
+
+[`docs/SPEC.md`](docs/SPEC.md) is the product spec: numbered requirements with yes/no acceptance criteria, interfaces, non-functional rules, and a definition of done. It's written to be handed to an AI (or a person) to build from.
+
 ## Run it
 
 ```bash
