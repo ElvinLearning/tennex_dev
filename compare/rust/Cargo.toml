@@ -1,0 +1,13 @@
+[package]
+name = "tennex_rs"
+version = "0.1.0"
+edition = "2024"
+description = "Snippets of Tennex rewritten in Rust + Bevy, for comparing languages against the same spec."
+
+[features]
+default = []
+# The Bevy sketches are optional so `cargo test` stays fast; `cargo check --features bevy` checks them.
+bevy = ["dep:bevy"]
+
+[dependencies]
+bevy = { version = "0.19", optional = true, default-features = false, features = ["std", "async_executor", "bevy_asset", "bevy_log", "multi_threaded", "3d_bevy_render", "bevy_winit", "x11"] }
