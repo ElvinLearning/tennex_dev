@@ -161,7 +161,7 @@ Response: a `text/event-stream` of `data: {"t":"<text chunk>"}`, ending with `da
 - [ ] `npm run build` succeeds.
 - [ ] `npm run doctor` shows each configured provider answering a test message.
 
-## 12. Open questions
+## 12. Next steps to implement
 
-- Should agents get tools (run code, call Higgsfield) in v2, and which need human approval first?
-- Should conversations persist across page reloads?
+- agents get tools (run code, call Higgsfield) in v2, and which need human approval first?
+- conversations persist across page reloads?
